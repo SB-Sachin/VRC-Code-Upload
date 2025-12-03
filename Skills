@@ -1,0 +1,305 @@
+/*----------------------------------------------------------------------------*/
+/*                                                                            */
+/*    Module:       main.cpp                                                  */
+/*    Author:       sachinbeniwal                                             */
+/*    Created:      10/7/2025, 6:53:24 PM                                     */
+/*    Description:  V5 project (gyro_1-stable version)                        */
+/*                                                                            */
+/*----------------------------------------------------------------------------*/
+#include "vex.h"
+
+using namespace vex;
+
+// Global devices
+vex::brain Brain;
+motor leftMotor = motor(PORT3, true);
+motor leftMotor2 = motor(PORT1, false);
+motor leftMotor3 = motor(PORT2, true);
+motor rightMotor = motor(PORT13, false);
+motor rightMotor2 = motor(PORT11, false);
+motor rightMotor3 = motor(PORT12, false);
+inertial gyro_1 = inertial(PORT4);
+motor intake_bottom = motor(PORT10, true);
+motor deposition = motor(PORT9, true);
+controller cont = controller();
+digital_out tonguePos = digital_out(Brain.ThreeWirePort.G);
+digital_out wingPneumatics = digital_out(Brain.ThreeWirePort.H);
+
+// Constants
+const double WHEEL_DIAMETER = 3.25; 
+const double WHEEL_CIRCUMFERENCE = WHEEL_DIAMETER * M_PI;
+const double DRIVE_CORRECTION_FACTOR = 0.32; // Adjust this value to calibrate driving distance
+const int DRIVE_SPEED = 10; // Global variable to control driving speed
+
+//------------------- Motor Control Helper Functions -------------------//
+
+void setAllMotors(directionType dir, double speed, percentUnits units) {
+  leftMotor.spin(dir, speed, units);
+  leftMotor2.spin(dir, speed, units);
+  leftMotor3.spin(dir, speed, units);
+  rightMotor.spin(dir, speed, units);
+  rightMotor2.spin(dir, speed, units);
+  rightMotor3.spin(dir, speed, units);
+}
+
+void stopAllMotors(brakeType mode = brake) {
+  leftMotor.stop(mode);
+  leftMotor2.stop(mode);
+  leftMotor3.stop(mode);
+  rightMotor.stop(mode);
+  rightMotor2.stop(mode);
+  rightMotor3.stop(mode);
+  intake_bottom.stop(mode);
+  deposition.stop(mode);
+}
+
+void resetAllMotorPositions() {
+  leftMotor.setPosition(0, degrees);
+  leftMotor2.setPosition(0, degrees);
+  leftMotor3.setPosition(0, degrees);
+  rightMotor.setPosition(0, degrees);
+  rightMotor2.setPosition(0, degrees);
+  rightMotor3.setPosition(0, degrees);
+}
+
+void setLeftMotors(directionType dir, double speed, percentUnits units) {
+  leftMotor.spin(dir, speed, units);
+  leftMotor2.spin(dir, speed, units);
+  leftMotor3.spin(dir, speed, units);
+}
+
+void setRightMotors(directionType dir, double speed, percentUnits units) {
+  rightMotor.spin(dir, speed, units);
+  rightMotor2.spin(dir, speed, units);
+  rightMotor3.spin(dir, speed, units);
+}
+
+//------------------- Helper Functions -------------------//
+
+double inchesToDegrees(double distanceInches) {
+  return (distanceInches / WHEEL_CIRCUMFERENCE) * 360.0 * DRIVE_CORRECTION_FACTOR;
+}
+
+double wrapAngle(double angle) {
+  while (angle >= 360) angle -= 360;
+  while (angle < 0) angle += 360;
+  return angle;
+}
+
+//------------------- Drive Forward -------------------//
+
+void drive_forward(int distance, bool runIntake = false, bool runDepo = false) {
+  int distanceInDegrees = inchesToDegrees(abs(distance));
+  bool isBackward = distance < 0;
+  
+  resetAllMotorPositions();
+
+  while (fabs(leftMotor.position(degrees)) < distanceInDegrees) {
+    double currentPos = fabs(leftMotor.position(degrees));
+    int speed = 0;
+
+    // Ramp up at start, ramp down at end
+    if (currentPos < 100 && currentPos < distanceInDegrees * 0.5)
+      speed = currentPos + 1;
+    else
+      speed = distanceInDegrees - currentPos;
+
+    if (speed > DRIVE_SPEED) speed = DRIVE_SPEED;
+    if (speed < 20) speed = 20; // Keep a minimum speed to avoid stalling
+
+    if (isBackward) {
+      setAllMotors(reverse, speed, pct);
+    } else {
+      setAllMotors(forward, speed, pct);
+    }
+
+    if (runIntake) {
+      intake_bottom.spin(forward, 100, pct);
+    }
+    if (runDepo) {
+      deposition.spin(forward, 100, pct);
+    }
+    
+    wait(20, msec);
+  }
+
+  stopAllMotors();
+}
+
+//------------------- Turn Function -------------------//
+
+void turn(double targetHeading, bool runIntake = false, bool runDepo = false) {
+  double kp = 0.5;
+  double maxSpeed = DRIVE_SPEED; // Use global DRIVE_SPEED
+
+  targetHeading = wrapAngle(targetHeading);
+
+  while (fabs(gyro_1.heading(degrees) - targetHeading) > 2.0) {
+    double current = gyro_1.heading(degrees);
+    double error = targetHeading - current;
+
+    // Wrap error for shortest path
+    if (error > 180) error -= 360;
+    if (error < -180) error += 360;
+
+    double speed = error * kp;
+
+    // Clamp speed
+    if (speed > maxSpeed) speed = maxSpeed;
+    if (speed < -maxSpeed) speed = -maxSpeed;
+
+    setLeftMotors(forward, speed, pct);
+    setRightMotors(reverse, speed, pct);
+
+    if (runIntake) {
+      intake_bottom.spin(forward, 100, pct);
+    }
+    if (runDepo) {
+      deposition.spin(forward, 100, pct);
+    }
+
+    wait(20, msec);
+  }
+
+  stopAllMotors();
+}
+
+//------------------- Turn Wrappers -------------------//
+
+void drive_turn_right_no_hands(double degreesToTurn) {
+  double target = wrapAngle(gyro_1.heading(degrees) + fabs(degreesToTurn));
+  turn(target);
+}
+
+void drive_turn_left_no_hands(double degreesToTurn) {
+  double target = wrapAngle(gyro_1.heading(degrees) - fabs(degreesToTurn));
+  turn(target);
+}
+
+//------------------- Debug Display -------------------//
+
+void brainDisplay() {
+  while (true) {
+    Brain.Screen.clearScreen();
+    Brain.Screen.printAt(1, 30, "LeftMotor: %.2f°", leftMotor.position(degrees));
+    Brain.Screen.printAt(1, 50, "RightMotor: %.2f°", rightMotor.position(degrees));
+    Brain.Screen.printAt(1, 70, "gyro_1 Rotation: %.2f°", gyro_1.rotation(degrees));
+    Brain.Screen.printAt(1, 90, "Heading: %.2f°", gyro_1.heading(degrees));
+    wait(100, msec);
+  }
+}
+
+//------------------Depo&Intake-----------------//
+// Intake and deposition are  handled by the drive and turn functions
+
+//------------------- Pneumatic Control Functions -------------------//
+
+void tongue_extend() {
+  tonguePos.set(true);
+}
+
+void tongue_retract() {
+  tonguePos.set(false);
+}
+
+void wings_extend() {
+  wingPneumatics.set(true);
+}
+
+void wings_retract() {
+  wingPneumatics.set(false);
+}
+
+//------------------- Timed Motor Control Functions -------------------//
+
+/**
+ * Run the intake motor for a specified time
+ * @param timeSec Time to run in seconds
+ * @param speed Speed as percentage (positive = forward, negative = reverse)
+ */
+void intake(double timeSec, int speed = 100) {
+  intake_bottom.spin(forward, speed, pct);
+  wait(timeSec, sec);
+  intake_bottom.stop(brake);
+}
+
+/**
+ * Run the deposition motor for a specified time
+ * @param timeSec Time to run in seconds
+ * @param speed Speed as percentage (positive = forward, negative = reverse)
+ */
+void depo(double timeSec, int speed = 100) {
+  deposition.spin(forward, speed, pct);
+  wait(timeSec, sec);
+  deposition.stop(brake);
+}
+
+//------------------- Main -------------------//
+
+int main() {
+  Brain.Screen.printAt(10, 50, "Hello ARVUN V5!");
+
+  thread t(brainDisplay);
+
+  //Calibrate gyro ONCE at startup
+  gyro_1.calibrate();
+  while (gyro_1.isCalibrating()) wait(100, msec);
+
+  gyro_1.setHeading(0, degrees);
+
+  drive_forward(46);
+  turn(90);
+  tongue_extend();
+  drive_forward(14, true);
+  intake(5, 100);  // Run intake for 5 seconds at 100% speed collecting 3 from tower
+  drive_forward(-16, true);
+  tongue_retract();
+  turn(-135);
+  drive_forward(34, true);
+  //^^ Picked up cluster of 4 balls
+  turn(-90);
+  drive_forward(-10);
+  turn(-180);
+  drive_forward(-23);
+  turn(-270);
+  drive_forward(-7, false, true);
+  depo(3, 100);  // Run deposition for 3 seconds at 100 speed
+  //DEPO into long goal
+
+
+  //wing test
+  drive_forward(5);
+
+  turn(-180);
+  drive_forward(20);
+  turn(-90);
+  wings_extend();
+  drive_forward(20);
+  drive_forward(-25);
+  wings_retract();
+  turn(-180);
+  //not manditory^^^
+
+  drive_forward(68); // Drive laterally across feild
+  turn(-135);
+  drive_forward(60, true);
+  //Picked up 2 patches of balls in a line
+  drive_forward(-7);
+  turn(-90);
+  drive_forward(-20);
+  turn(0);
+  drive_forward(-12);
+  turn(90);
+  drive_forward(-10);
+  depo(-5); //depo into other long goal
+  drive_forward(5);
+  turn(0);
+  drive_forward(20);
+  turn(90);
+  wings_extend();
+  drive_forward(-30);
+  drive_forward(35);
+  wings_retract();
+
+
+}
