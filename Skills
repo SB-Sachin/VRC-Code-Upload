@@ -28,7 +28,7 @@ digital_out wingPneumatics = digital_out(Brain.ThreeWirePort.H);
 // Constants
 const double WHEEL_DIAMETER = 3.25; 
 const double WHEEL_CIRCUMFERENCE = WHEEL_DIAMETER * M_PI;
-const double DRIVE_CORRECTION_FACTOR = 0.32; // Adjust this value to calibrate driving distance
+const double GEAR_RATIO = 48.0 / 36.0; // 48-tooth driven / 36-tooth drive = 1.333...
 const int DRIVE_SPEED = 10; // Global variable to control driving speed
 
 //------------------- Motor Control Helper Functions -------------------//
@@ -77,7 +77,13 @@ void setRightMotors(directionType dir, double speed, percentUnits units) {
 //------------------- Helper Functions -------------------//
 
 double inchesToDegrees(double distanceInches) {
-  return (distanceInches / WHEEL_CIRCUMFERENCE) * 360.0 * DRIVE_CORRECTION_FACTOR;
+  // Calculate wheel rotations needed
+  double wheelRotations = distanceInches / WHEEL_CIRCUMFERENCE;
+  // Convert to wheel degrees
+  double wheelDegrees = wheelRotations * 360.0;
+  // Account for gear ratio - motor must turn more than the wheel
+  double motorDegrees = wheelDegrees * GEAR_RATIO;
+  return motorDegrees;
 }
 
 double wrapAngle(double angle) {
@@ -164,18 +170,6 @@ void turn(double targetHeading, bool runIntake = false, bool runDepo = false) {
   stopAllMotors();
 }
 
-//------------------- Turn Wrappers -------------------//
-
-void drive_turn_right_no_hands(double degreesToTurn) {
-  double target = wrapAngle(gyro_1.heading(degrees) + fabs(degreesToTurn));
-  turn(target);
-}
-
-void drive_turn_left_no_hands(double degreesToTurn) {
-  double target = wrapAngle(gyro_1.heading(degrees) - fabs(degreesToTurn));
-  turn(target);
-}
-
 //------------------- Debug Display -------------------//
 
 void brainDisplay() {
@@ -233,6 +227,19 @@ void depo(double timeSec, int speed = 100) {
   wait(timeSec, sec);
   deposition.stop(brake);
 }
+/**
+ * Run both intake and deposition motors for a specified time
+ * @param timeSec Time to run in seconds
+ * @param intakeSpeed Intake speed as percentage (positive = forward, negative = reverse)
+ * @param depoSpeed Deposition speed as percentage (positive = forward, negative = reverse)
+ */
+void intakeAndDepo(double timeSec, int intakeSpeed, int depoSpeed) {
+  intake_bottom.spin(forward, intakeSpeed, pct);
+  deposition.spin(forward, depoSpeed, pct);
+  wait(timeSec, sec);
+  intake_bottom.stop(brake);
+  deposition.stop(brake);
+}
 
 //------------------- Main -------------------//
 
@@ -247,59 +254,132 @@ int main() {
 
   gyro_1.setHeading(0, degrees);
 
-  drive_forward(46);
-  turn(90);
-  tongue_extend();
-  drive_forward(14, true);
-  intake(5, 100);  // Run intake for 5 seconds at 100% speed collecting 3 from tower
-  drive_forward(-16, true);
-  tongue_retract();
-  turn(-135);
+  drive_forward(28, true);
+  turn(25, true);
+  drive_forward(10, true); 
+  turn(45, true);     
   drive_forward(34, true);
-  //^^ Picked up cluster of 4 balls
-  turn(-90);
-  drive_forward(-10);
-  turn(-180);
-  drive_forward(-23);
-  turn(-270);
-  drive_forward(-7, false, true);
-  depo(3, 100);  // Run deposition for 3 seconds at 100 speed
-  //DEPO into long goal
-
-
-  //wing test
-  drive_forward(5);
-
-  turn(-180);
-  drive_forward(20);
-  turn(-90);
-  wings_extend();
-  drive_forward(20);
-  drive_forward(-25);
-  wings_retract();
-  turn(-180);
-  //not manditory^^^
-
-  drive_forward(68); // Drive laterally across feild
-  turn(-135);
-  drive_forward(60, true);
-  //Picked up 2 patches of balls in a line
-  drive_forward(-7);
-  turn(-90);
-  drive_forward(-20);
+  drive_forward(-34);
   turn(0);
-  drive_forward(-12);
-  turn(90);
-  drive_forward(-10);
-  depo(-5); //depo into other long goal
-  drive_forward(5);
-  turn(0);
-  drive_forward(20);
-  turn(90);
-  wings_extend();
-  drive_forward(-30);
-  drive_forward(35);
-  wings_retract();
+  drive_forward(-24);
+  turn(-90);
+  drive_forward(-24);
+  turn(-180);
+  drive_forward(-24);
+  intakeAndDepo(5,100, 100);
+
+
+  tongue_extend();
+  drive_forward(15, true);
+  intake(5);
+  drive_forward(-15, true);
+  intakeAndDepo(5, 100, 100);
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  // drive_forward(46);
+  // turn(90);
+  // tongue_extend();
+  // drive_forward(14, true);
+  // intake(5, 100);  // Run intake for 5 seconds at 100% speed collecting 3 from tower
+  // drive_forward(-16, true);
+  // tongue_retract();
+  // turn(-135);
+  // drive_forward(34, true);
+  // //^^ Picked up cluster of 4 balls
+  // turn(-90);
+  // drive_forward(-10);
+  // turn(-180);
+  // drive_forward(-23);
+  // turn(-270);
+  // drive_forward(-7, false, true);
+  // depo(3, 100);  // Run deposition for 3 seconds at 100 speed
+  // //DEPO into long goal
+
+
+  // //wing test
+  // drive_forward(5);
+
+  // turn(-180);
+  // drive_forward(20);
+  // turn(-90);
+  // wings_extend();
+  // drive_forward(20);
+  // drive_forward(-25);
+  // wings_retract();
+  // turn(-180);
+  // //not manditory^^^
+
+  // drive_forward(68); // Drive laterally across feild
+  // turn(-135);
+  // drive_forward(60, true);
+  // //Picked up 2 patches of balls in a line
+  // drive_forward(-7);
+  // turn(-90);
+  // drive_forward(-20);
+  // turn(0);
+  // drive_forward(-12);
+  // turn(90);
+  // drive_forward(-10);
+  // depo(-5); //depo into other long goal
+  // drive_forward(5);
+  // turn(0);
+  // drive_forward(20);
+  // turn(90);
+  // wings_extend();
+  // drive_forward(-30);
+  // drive_forward(35);
+  // wings_retract();
 
 
 }
