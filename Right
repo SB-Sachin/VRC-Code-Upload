@@ -8,6 +8,7 @@
 /*                                                                            */
 /*----------------------------------------------------------------------------*/
 #include "vex.h"
+#include <cmath>
 
 using namespace vex;
 
@@ -19,9 +20,9 @@ vex::brain Brain;
 motor leftMotor = motor(PORT3, true);
 motor leftMotor2 = motor(PORT1, false);
 motor leftMotor3 = motor(PORT2, true);
-motor rightMotor = motor(PORT13, false);
-motor rightMotor2 = motor(PORT11, false);
-motor rightMotor3 = motor(PORT12, false);
+motor rightMotor = motor(PORT13, true);
+motor rightMotor2 = motor(PORT11, true);
+motor rightMotor3 = motor(PORT14, true);
 inertial gyro_1 = inertial(PORT19);
 motor intake = motor(PORT10, true);
 motor deposition = motor(PORT9, true);
@@ -50,13 +51,25 @@ int autonSelection = 0; // 0 = Right Side, 1 = Left Side
 int current_auton_selection;
 //------------------- Cubic Acceleration Function -------------------//
 
+int sgn(double val) {
+    if (val > 0) return 1;
+    if (val < 0) return -1;
+    return 0;
+}
+
 double applyCubicCurve(double input) {
-  // Apply cubic curve: z = (x/100)^3 * 100
   // Input range: -100 to 100
   // Output range: -100 to 100
-  double normalized = input / 100.0; // Normalize to -1 to 1
-  double curved = normalized * normalized * normalized; // Cube it
-  return curved * 100.0; // Scale back to -100 to 100
+
+  double normalized = fabs(input) / 100.0;
+
+  // Make sure the exponent is a double so 10/3 becomes ~3.3333
+  double absolute_value_part = pow(normalized, 10.0 / 3.0);
+
+  // Multiply the sign by the curved magnitude
+  double curved = sgn(input) * absolute_value_part;
+
+  return curved * 100.0;
 }
 
 //------------------- Motor Control Helper Functions -------------------//
