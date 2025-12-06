@@ -381,5 +381,8 @@ int main() {
   // drive_forward(35);
   // wings_retract();
 
+'
 
+
+reduce everything by 18 for auton
 }
