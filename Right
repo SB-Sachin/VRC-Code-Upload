@@ -20,8 +20,8 @@ vex::brain Brain;
 motor leftMotor = motor(PORT3, true);
 motor leftMotor2 = motor(PORT1, false);
 motor leftMotor3 = motor(PORT2, true);
-motor rightMotor = motor(PORT13, true);
-motor rightMotor2 = motor(PORT11, true);
+motor rightMotor = motor(PORT13, false);
+motor rightMotor2 = motor(PORT11, false);
 motor rightMotor3 = motor(PORT12, true);
 inertial gyro_1 = inertial(PORT19);
 motor intake = motor(PORT10, true);
@@ -271,6 +271,14 @@ void split_Drive() {
     }
 }
 
+
+void intakeAndDepo(double timeSec, int intakeSpeed, int depoSpeed) {
+  intake.spin(forward, intakeSpeed, pct);
+  deposition.spin(forward, depoSpeed, pct);
+  wait(timeSec, sec);
+  intake.stop(brake);
+  deposition.stop(brake);
+}
 //------------------- Debug Display -------------------//
 
 void brainDisplay() {
@@ -294,7 +302,17 @@ void auton_right_side() {
   turn(25, 100);                // Turn RIGHT 25 degrees
   drive_forward(10, 100);       // Drive forward 10 inches
   turn(45, 100);                // Turn RIGHT to 45 degrees total
-  drive_forward(40, 100);       // Drive forward 40 inches
+  drive_forward(35, 100);       // Drive forward 35 inches
+  drive_forward(-30, 100);
+  turn(0);
+  drive_forward(-11);
+  turn(-90);
+  drive_forward(-30);
+  turn(-180);
+  intakeAndDepo(10, 50,50);
+  toungePos.set(true);
+  drive_forward(10, true);
+  drive_forward(20, true);
 }
 
 void auton_left_side() {
