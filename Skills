@@ -29,7 +29,7 @@ digital_out wingPneumatics = digital_out(Brain.ThreeWirePort.H);
 const double WHEEL_DIAMETER = 3.25; 
 const double WHEEL_CIRCUMFERENCE = WHEEL_DIAMETER * M_PI;
 const double DRIVE_CORRECTION_FACTOR = 0.32;
-const int AUTON_DRIVE_SPEED = 10; // Speed for autonomous movements
+const int AUTON_DRIVE_SPEED = 13; // Speed for autonomous movements
 const int DRIVE_SPEED = 10; // Global variable to control driving speed
 
 //------------------- Motor Control Helper Functions -------------------//
@@ -247,28 +247,28 @@ int main() {
   while (gyro_1.isCalibrating()) wait(100, msec);
 
   gyro_1.setHeading(0, degrees);
-//4.3 = 24 in
+
   drive_forward(35, true);
 
-  turn(25, true);
+  turn(22, true);
   drive_forward(5, true); 
-  turn(45, true);     
-  drive_forward(40, true);
-  drive_forward(-23);
+  turn(43, true);     
+  drive_forward(43, true);
+  drive_forward(-24, true);
   turn(0);
-  drive_forward(-10);
+  drive_forward(-14, true);
   turn(-90);
-  drive_forward(-30);
+  drive_forward(-37, true);
   turn(-180);
-  // drive_forward(-30);
+  drive_forward(-1);
   intakeAndDepo(5,100, 50);
 
 
   tongue_extend();
-  drive_forward(15, true);
+  drive_forward(40, true);
   intake(5);
-  drive_forward(-15, true);
-  intakeAndDepo(5, 100, 50);
+  drive_forward(-40, true);
+  intakeAndDepo(8, 100, 50);
 
 
   
