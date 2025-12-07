@@ -17,8 +17,8 @@ motor leftMotor2 = motor(PORT1, false);
 motor leftMotor3 = motor(PORT2, true);
 motor rightMotor = motor(PORT13, false);
 motor rightMotor2 = motor(PORT11, false);
-motor rightMotor3 = motor(PORT12, false);
-inertial gyro_1 = inertial(PORT4);
+motor rightMotor3 = motor(PORT12, true);
+inertial gyro_1 = inertial(PORT19);
 motor intake_bottom = motor(PORT10, true);
 motor deposition = motor(PORT9, true);
 controller cont = controller();
@@ -28,7 +28,8 @@ digital_out wingPneumatics = digital_out(Brain.ThreeWirePort.H);
 // Constants
 const double WHEEL_DIAMETER = 3.25; 
 const double WHEEL_CIRCUMFERENCE = WHEEL_DIAMETER * M_PI;
-const double GEAR_RATIO = 48.0 / 36.0; // 48-tooth driven / 36-tooth drive = 1.333...
+const double DRIVE_CORRECTION_FACTOR = 0.32;
+const int AUTON_DRIVE_SPEED = 10; // Speed for autonomous movements
 const int DRIVE_SPEED = 10; // Global variable to control driving speed
 
 //------------------- Motor Control Helper Functions -------------------//
@@ -77,13 +78,7 @@ void setRightMotors(directionType dir, double speed, percentUnits units) {
 //------------------- Helper Functions -------------------//
 
 double inchesToDegrees(double distanceInches) {
-  // Calculate wheel rotations needed
-  double wheelRotations = distanceInches / WHEEL_CIRCUMFERENCE;
-  // Convert to wheel degrees
-  double wheelDegrees = wheelRotations * 360.0;
-  // Account for gear ratio - motor must turn more than the wheel
-  double motorDegrees = wheelDegrees * GEAR_RATIO;
-  return motorDegrees;
+  return (distanceInches / WHEEL_CIRCUMFERENCE) * 360.0 * DRIVE_CORRECTION_FACTOR;
 }
 
 double wrapAngle(double angle) {
@@ -248,32 +243,32 @@ int main() {
 
   thread t(brainDisplay);
 
-  //Calibrate gyro ONCE at startup
   gyro_1.calibrate();
   while (gyro_1.isCalibrating()) wait(100, msec);
 
   gyro_1.setHeading(0, degrees);
+//4.3 = 24 in
+  drive_forward(35, true);
 
-  drive_forward(28, true);
   turn(25, true);
-  drive_forward(10, true); 
+  drive_forward(5, true); 
   turn(45, true);     
-  drive_forward(34, true);
-  drive_forward(-34);
+  drive_forward(40, true);
+  drive_forward(-23);
   turn(0);
-  drive_forward(-24);
+  drive_forward(-10);
   turn(-90);
-  drive_forward(-24);
+  drive_forward(-30);
   turn(-180);
-  drive_forward(-24);
-  intakeAndDepo(5,100, 100);
+  // drive_forward(-30);
+  intakeAndDepo(5,100, 50);
 
 
   tongue_extend();
   drive_forward(15, true);
   intake(5);
   drive_forward(-15, true);
-  intakeAndDepo(5, 100, 100);
+  intakeAndDepo(5, 100, 50);
 
 
   
@@ -381,8 +376,4 @@ int main() {
   // drive_forward(35);
   // wings_retract();
 
-'
-
-
-reduce everything by 18 for auton
 }
