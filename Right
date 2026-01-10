@@ -286,21 +286,6 @@ void auton_right_side() {
   // RIGHT SIDE autonomous routine
   gyro_1.setHeading(0, degrees);
 
-  // drive_forward(960, true);      // Drive forward with intake (degrees)
-  // turn(15, 100);                  // Turn RIGHT 25 degrees
-  // drive_forward(470.1, true);       // Drive forward (degrees)
-  // turn(50, 100);                  // Turn RIGHT to 45 degrees total
-  // drive_forward(1050, true);      // Drive forward (degrees)
-  // drive_forward(-900, true);
-  // turn(0);
-  // drive_forward(-330);
-  // turn(-90);
-  // drive_forward(-900);
-  // turn(-180);
-  // intakeAndDepo(10, 50, 50);
-  // toungePos.set(true);
-  // drive_forward(300, true);
-  // drive_forward(600, true);
 }
 
 void auton_left_side() {
