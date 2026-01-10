@@ -37,18 +37,17 @@ bool wingUp = false; // State variable for wing pneumatics position
 bool lastButtonBState = false; // State variable for ButtonA to detect single presses
 
 // Constants for autonomous
-const double WHEEL_DIAMETER = 3.25; 
-const double WHEEL_CIRCUMFERENCE = WHEEL_DIAMETER * M_PI;
-const double DRIVE_CORRECTION_FACTOR = 0.32;
+const int DRIVE_SPEED = 10; // Base speed for driving
 const int AUTON_DRIVE_SPEED = 10; // Speed for autonomous movements
 
 // Constants for driver control
-const double DRIVER_SPEED = 0.4; // Speed multiplier for driver control
-const double TURN_SPEED = 0.25; // Speed multiplier for turning (slower than forward)
+const double DRIVER_SPEED = 0.7; // Speed multiplier for driver control
+const double TURN_SPEED = 0.3; // Speed multiplier for turning (slower than forward)
 
 // Autonomous selector variable
 int autonSelection = 0; // 0 = Right Side, 1 = Left Side
 int current_auton_selection;
+
 //------------------- Cubic Acceleration Function -------------------//
 
 int sgn(double val) {
@@ -71,6 +70,7 @@ double applyCubicCurve(double input) {
 
   return curved * 100.0;
 }
+
 
 //------------------- Motor Control Helper Functions -------------------//
 
@@ -117,10 +117,6 @@ void setRightMotors(directionType dir, double speed, percentUnits units) {
 
 //------------------- Helper Functions -------------------//
 
-double inchesToDegrees(double distanceInches) {
-  return (distanceInches / WHEEL_CIRCUMFERENCE) * 360.0 * DRIVE_CORRECTION_FACTOR;
-}
-
 double wrapAngle(double angle) {
   while (angle >= 360) angle -= 360;
   while (angle < 0) angle += 360;
@@ -129,41 +125,30 @@ double wrapAngle(double angle) {
 
 //------------------- Autonomous Drive Functions -------------------//
 
-void drive_forward(int distance, int intakeSpeed = 0) {
-  int distanceInDegrees = inchesToDegrees(abs(distance));
-  bool isBackward = distance < 0;
+void drive_forward(int targetDegrees, bool runIntake = false, bool runDepo = false) {
+  bool isBackward = targetDegrees < 0;
+  int absDegrees = abs(targetDegrees);
   
   resetAllMotorPositions();
 
-  // Start intake motor if intakeSpeed is provided
-  if (intakeSpeed != 0) {
-    intake.spin(forward, intakeSpeed, pct);
-  }
-
-  while (fabs(leftMotor.position(degrees)) < distanceInDegrees) {
-    double currentPos = fabs(leftMotor.position(degrees));
-    int speed = 0;
-
-    // Ramp up at start, ramp down at end
-    if (currentPos < 100 && currentPos < distanceInDegrees * 0.5)
-      speed = currentPos + 1;
-    else
-      speed = distanceInDegrees - currentPos;
-
-    if (speed > AUTON_DRIVE_SPEED) speed = AUTON_DRIVE_SPEED;
-    if (speed < 20) speed = 20; // Keep a minimum speed to avoid stalling
-
+  while (fabs(leftMotor.position(degrees)) < absDegrees) {
     if (isBackward) {
-      setAllMotors(reverse, speed, pct);
+      setAllMotors(reverse, DRIVE_SPEED, pct);
     } else {
-      setAllMotors(forward, speed, pct);
+      setAllMotors(forward, DRIVE_SPEED, pct);
+    }
+
+    if (runIntake) {
+      intake.spin(forward, 100, pct);
+    }
+    if (runDepo) {
+      deposition.spin(forward, 100, pct);
     }
     
     wait(20, msec);
   }
 
   stopAllMotors();
-  intake.stop(brake); // Stop intake motor after driving
 }
 
 //------------------- Smart Turn Function -------------------//
@@ -230,27 +215,29 @@ void split_Drive() {
     double forward = forwardCurved * DRIVER_SPEED;
     double turn = turnCurved * TURN_SPEED;
     
-    double leftSpeed = forward + turn;
-    double rightSpeed = forward - turn;
+    // Calculate target speeds
+    double targetLeftSpeed = forward + turn;
+    double targetRightSpeed = forward - turn;
     
-    setLeftMotors(vex::forward, leftSpeed, pct);
-    setRightMotors(vex::forward, rightSpeed, pct);
+    // Set motors directly to target speeds (no acceleration limiting)
+    setLeftMotors(vex::forward, targetLeftSpeed, pct);
+    setRightMotors(vex::forward, targetRightSpeed, pct);
     
-    // Tongue position control (toggle with ButtonX)
+    // Tongue position control (toggle with ButtonA)
     bool currentButtonAState = cont.ButtonA.pressing();
-    if (currentButtonAState && !lastButtonAState) { // Detect rising edge
-        toungeUp = !toungeUp; // Toggle the state
+    if (currentButtonAState && !lastButtonAState) {
+        toungeUp = !toungeUp;
         toungePos.set(toungeUp);
     }
-    lastButtonAState = currentButtonAState; // Update the last state
+    lastButtonAState = currentButtonAState;
 
-    // Wing pneumatics control (toggle with ButtonA)
+    // Wing pneumatics control (toggle with ButtonB)
     bool currentButtonBState = cont.ButtonB.pressing();
-    if (currentButtonBState && !lastButtonBState) { // Detect rising edge
-        wingUp = !wingUp; // Toggle the state
+    if (currentButtonBState && !lastButtonBState) {
+        wingUp = !wingUp;
         wingPneumatics.set(wingUp);
     }
-    lastButtonBState = currentButtonBState; // Update the last state
+    lastButtonBState = currentButtonBState;
     
     // Intake control
     if(cont.ButtonL1.pressing()) {
@@ -279,6 +266,7 @@ void intakeAndDepo(double timeSec, int intakeSpeed, int depoSpeed) {
   intake.stop(brake);
   deposition.stop(brake);
 }
+
 //------------------- Debug Display -------------------//
 
 void brainDisplay() {
@@ -297,34 +285,33 @@ void brainDisplay() {
 void auton_right_side() {
   // RIGHT SIDE autonomous routine
   gyro_1.setHeading(0, degrees);
-  
-  drive_forward(40, 100);      // Drive forward 40 inches with intake
-  turn(25, 100);                // Turn RIGHT 25 degrees
-  drive_forward(10, 100);       // Drive forward 10 inches
-  turn(45, 100);                // Turn RIGHT to 45 degrees total
-  drive_forward(35, 100);       // Drive forward 35 inches
-  drive_forward(-30, 100);
-  turn(0);
-  drive_forward(-11);
-  turn(-90);
-  drive_forward(-30);
-  turn(-180);
-  intakeAndDepo(10, 50,50);
-  toungePos.set(true);
-  drive_forward(10, true);
-  drive_forward(20, true);
+
+  // drive_forward(960, true);      // Drive forward with intake (degrees)
+  // turn(15, 100);                  // Turn RIGHT 25 degrees
+  // drive_forward(470.1, true);       // Drive forward (degrees)
+  // turn(50, 100);                  // Turn RIGHT to 45 degrees total
+  // drive_forward(1050, true);      // Drive forward (degrees)
+  // drive_forward(-900, true);
+  // turn(0);
+  // drive_forward(-330);
+  // turn(-90);
+  // drive_forward(-900);
+  // turn(-180);
+  // intakeAndDepo(10, 50, 50);
+  // toungePos.set(true);
+  // drive_forward(300, true);
+  // drive_forward(600, true);
 }
 
 void auton_left_side() {
-
   gyro_1.setHeading(0, degrees);
   
-  drive_forward(40, 100);       // Drive forward 40 inches with intake
-  turn(335, 100);               // Turn LEFT 25 degrees (360 - 25 = 335)
-  drive_forward(10, 100);       // Drive forward 10 inches
-  turn(315, 100);               // Turn LEFT to 315 degrees total (360 - 45 = 315)
-  drive_forward(40, 100);       // Drive forward 40 inches
-  drive_forward(-30, 100);      // Move away from auton line
+  drive_forward(1200, true);       // Drive forward with intake (degrees)
+  turn(335, 100);                  // Turn LEFT 25 degrees (360 - 25 = 335)
+  drive_forward(300, true);        // Drive forward (degrees)
+  turn(315, 100);                  // Turn LEFT to 315 degrees total (360 - 45 = 315)
+  drive_forward(1200, true);       // Drive forward (degrees)
+  drive_forward(-900, true);       // Move away from auton line
 }
 
 
@@ -333,9 +320,6 @@ void auton_left_side() {
 /*---------------------------------------------------------------------------*/
 
 void pre_auton(void) {
-  
-
-
   // Calibrate gyro at startup
   Brain.Screen.printAt(10, 200, "Calibrating Gyro...");
   gyro_1.calibrate();
@@ -372,10 +356,8 @@ void usercontrol(void) {
 
 
 int main() {
-
   Competition.autonomous(autonomous);
   Competition.drivercontrol(usercontrol);
-
 
   pre_auton();
 
