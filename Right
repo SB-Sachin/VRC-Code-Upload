@@ -38,15 +38,12 @@ bool lastButtonBState = false; // State variable for ButtonA to detect single pr
 
 // Constants for autonomous
 const int DRIVE_SPEED = 10; // Base speed for driving
-const int AUTON_DRIVE_SPEED = 10; // Speed for autonomous movements
+const int AUTON_DRIVE_SPEED = 20; // Speed for autonomous movements
 
 // Constants for driver control
 const double DRIVER_SPEED = 0.7; // Speed multiplier for driver control
 const double TURN_SPEED = 0.3; // Speed multiplier for turning (slower than forward)
 
-// Autonomous selector variable
-int autonSelection = 0; // 0 = Right Side, 1 = Left Side
-int current_auton_selection;
 
 //------------------- Cubic Acceleration Function -------------------//
 
@@ -133,9 +130,9 @@ void drive_forward(int targetDegrees, bool runIntake = false, bool runDepo = fal
 
   while (fabs(leftMotor.position(degrees)) < absDegrees) {
     if (isBackward) {
-      setAllMotors(reverse, DRIVE_SPEED, pct);
+      setAllMotors(reverse, AUTON_DRIVE_SPEED, pct);
     } else {
-      setAllMotors(forward, DRIVE_SPEED, pct);
+      setAllMotors(forward, AUTON_DRIVE_SPEED, pct);
     }
 
     if (runIntake) {
@@ -284,8 +281,23 @@ void brainDisplay() {
 
 void auton_right_side() {
   // RIGHT SIDE autonomous routine
-  gyro_1.setHeading(0, degrees);
+  gyro_1.setHeading(34, degrees);
 
+  drive_forward(470.1, true);      // Drive forward with intake (degrees)
+  turn(45, 100);                  // Turn RIGHT 25 degrees
+  // drive_forward(235.1, true);       // Drive forward (degrees   // Drive forward (degrees)
+  // drive_forward(-235.1, true);
+  turn(0);
+  drive_forward(-160);
+  turn(-90);
+  drive_forward(-450.1);
+  turn(180);
+  drive_forward(-235.1);
+
+  toungePos.set(true);
+  drive_forward(100, true);
+  drive_forward(-470.1, true);
+  intakeAndDepo(10, 50, 50);
 }
 
 void auton_left_side() {
