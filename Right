@@ -3,7 +3,7 @@
 /*    Module:       main.cpp                                                  */
 /*    Author:       sachinbeniwal                                             */
 /*    Created:      11/8/2025, 11:08:40 AM                                    */
-/*    Description:  V5 Competition Project                                    */
+/*    Description:  V5 Competition Project with PID Control                   */
 /*                                                                            */
 /*                                                                            */
 /*----------------------------------------------------------------------------*/
@@ -36,14 +36,81 @@ bool lastButtonAState = false; // State variable for ButtonX to detect single pr
 bool wingUp = false; // State variable for wing pneumatics position
 bool lastButtonBState = false; // State variable for ButtonA to detect single presses
 
-// Constants for autonomous
-const int DRIVE_SPEED = 10; // Base speed for driving
-const int AUTON_DRIVE_SPEED = 20; // Speed for autonomous movements
+// PID Constants for Drive
+const double DRIVE_KP = 0.3;
+const double DRIVE_KI = 0.001;
+const double DRIVE_KD = 0.1;
+const double DRIVE_MAX_SPEED = 60;
+const double DRIVE_MIN_SPEED = 8;
+const double DRIVE_TOLERANCE = 10; // degrees tolerance
+
+// PID Constants for Turn
+const double TURN_KP = 0.8;
+const double TURN_KI = 0.001;
+const double TURN_KD = 0.15;
+const double TURN_MAX_SPEED = 50;
+const double TURN_MIN_SPEED = 5;
+const double TURN_TOLERANCE = 1.5; // degrees tolerance
 
 // Constants for driver control
 const double DRIVER_SPEED = 0.7; // Speed multiplier for driver control
 const double TURN_SPEED = 0.3; // Speed multiplier for turning (slower than forward)
 
+// Autonomous selector variable
+int autonSelection = 0; // 0 = Right Side, 1 = Left Side
+int current_auton_selection;
+
+//------------------- PID Controller Class -------------------//
+
+class PIDController {
+private:
+  double kp, ki, kd;
+  double integral;
+  double previousError;
+  double maxSpeed;
+  double minSpeed;
+  
+public:
+  PIDController(double p, double i, double d, double max, double min) 
+    : kp(p), ki(i), kd(d), maxSpeed(max), minSpeed(min), integral(0), previousError(0) {}
+  
+  void reset() {
+    integral = 0;
+    previousError = 0;
+  }
+  
+  double calculate(double error) {
+    // Proportional
+    double p = error * kp;
+    
+    // Integral (with anti-windup)
+    integral += error;
+    if (fabs(integral) > 1000) {
+      integral = (integral > 0) ? 1000 : -1000;
+    }
+    double i = integral * ki;
+    
+    // Derivative
+    double derivative = error - previousError;
+    double d = derivative * kd;
+    previousError = error;
+    
+    // Calculate output
+    double output = p + i + d;
+    
+    // Apply speed limits with minimum speed
+    if (output > maxSpeed) output = maxSpeed;
+    if (output < -maxSpeed) output = -maxSpeed;
+    
+    // Apply minimum speed when error is significant
+    if (fabs(error) > 5) {
+      if (output > 0 && output < minSpeed) output = minSpeed;
+      if (output < 0 && output > -minSpeed) output = -minSpeed;
+    }
+    
+    return output;
+  }
+};
 
 //------------------- Cubic Acceleration Function -------------------//
 
@@ -112,6 +179,18 @@ void setRightMotors(directionType dir, double speed, percentUnits units) {
   rightMotor3.spin(dir, speed, units);
 }
 
+void setLeftMotorsVelocity(double speed) {
+  leftMotor.spin(forward, speed, pct);
+  leftMotor2.spin(forward, speed, pct);
+  leftMotor3.spin(forward, speed, pct);
+}
+
+void setRightMotorsVelocity(double speed) {
+  rightMotor.spin(forward, speed, pct);
+  rightMotor2.spin(forward, speed, pct);
+  rightMotor3.spin(forward, speed, pct);
+}
+
 //------------------- Helper Functions -------------------//
 
 double wrapAngle(double angle) {
@@ -120,21 +199,64 @@ double wrapAngle(double angle) {
   return angle;
 }
 
-//------------------- Autonomous Drive Functions -------------------//
+double getAveragePosition() {
+  return (fabs(leftMotor.position(degrees)) + fabs(rightMotor.position(degrees))) / 2.0;
+}
 
-void drive_forward(int targetDegrees, bool runIntake = false, bool runDepo = false) {
+//------------------- PID Drive Forward Function -------------------//
+
+void drive_forward_pid(int targetDegrees, bool runIntake = false, bool runDepo = false) {
+  PIDController drivePID(DRIVE_KP, DRIVE_KI, DRIVE_KD, DRIVE_MAX_SPEED, DRIVE_MIN_SPEED);
+  PIDController headingPID(0.5, 0.0, 0.05, 30, 0); // For heading correction
+  
   bool isBackward = targetDegrees < 0;
-  int absDegrees = abs(targetDegrees);
+  double absTarget = fabs(targetDegrees);
+  double initialHeading = gyro_1.heading(degrees);
   
   resetAllMotorPositions();
-
-  while (fabs(leftMotor.position(degrees)) < absDegrees) {
-    if (isBackward) {
-      setAllMotors(reverse, AUTON_DRIVE_SPEED, pct);
+  drivePID.reset();
+  headingPID.reset();
+  
+  int settledCount = 0;
+  const int SETTLE_ITERATIONS = 10;
+  
+  while (true) {
+    double currentPosition = getAveragePosition();
+    double error = absTarget - currentPosition;
+    
+    // Check if we've reached target
+    if (fabs(error) < DRIVE_TOLERANCE) {
+      settledCount++;
+      if (settledCount >= SETTLE_ITERATIONS) {
+        break;
+      }
     } else {
-      setAllMotors(forward, AUTON_DRIVE_SPEED, pct);
+      settledCount = 0;
     }
-
+    
+    // Calculate drive speed from PID
+    double driveSpeed = drivePID.calculate(error);
+    
+    // Calculate heading correction
+    double currentHeading = gyro_1.heading(degrees);
+    double headingError = initialHeading - currentHeading;
+    
+    // Wrap heading error
+    if (headingError > 180) headingError -= 360;
+    if (headingError < -180) headingError += 360;
+    
+    double headingCorrection = headingPID.calculate(headingError);
+    
+    // Apply direction
+    if (isBackward) {
+      driveSpeed = -driveSpeed;
+    }
+    
+    // Apply motor speeds with heading correction
+    setLeftMotorsVelocity(driveSpeed + headingCorrection);
+    setRightMotorsVelocity(driveSpeed - headingCorrection);
+    
+    // Run auxiliary motors
     if (runIntake) {
       intake.spin(forward, 100, pct);
     }
@@ -144,58 +266,58 @@ void drive_forward(int targetDegrees, bool runIntake = false, bool runDepo = fal
     
     wait(20, msec);
   }
-
+  
   stopAllMotors();
 }
 
-//------------------- Smart Turn Function -------------------//
+//------------------- PID Turn Function -------------------//
 
-void turn(double targetHeading, int intakeSpeed = 0) {
-  double kp = 0.5;
-  double maxSpeed = AUTON_DRIVE_SPEED;
-
+void turn_pid(double targetHeading, int intakeSpeed = 0) {
+  PIDController turnPID(TURN_KP, TURN_KI, TURN_KD, TURN_MAX_SPEED, TURN_MIN_SPEED);
+  
   targetHeading = wrapAngle(targetHeading);
-
+  turnPID.reset();
+  
   // Start intake motor if intakeSpeed is provided
   if (intakeSpeed != 0) {
     intake.spin(forward, intakeSpeed, pct);
   }
-
-  while (fabs(gyro_1.heading(degrees) - targetHeading) > 2.0) {
-    double current = gyro_1.heading(degrees);
-    double error = targetHeading - current;
-
+  
+  int settledCount = 0;
+  const int SETTLE_ITERATIONS = 15;
+  
+  while (true) {
+    double currentHeading = gyro_1.heading(degrees);
+    double error = targetHeading - currentHeading;
+    
     // Wrap error for shortest path
     if (error > 180) error -= 360;
     if (error < -180) error += 360;
-
-    double speed = error * kp;
-
-    // Clamp speed
-    if (speed > maxSpeed) speed = maxSpeed;
-    if (speed < -maxSpeed) speed = -maxSpeed;
-
-    setLeftMotors(forward, speed, pct);
-    setRightMotors(reverse, speed, pct);
-
+    
+    // Check if we've reached target
+    if (fabs(error) < TURN_TOLERANCE) {
+      settledCount++;
+      if (settledCount >= SETTLE_ITERATIONS) {
+        break;
+      }
+    } else {
+      settledCount = 0;
+    }
+    
+    // Calculate turn speed from PID
+    double turnSpeed = turnPID.calculate(error);
+    
+    // Apply speeds (left and right opposite for turning)
+    setLeftMotorsVelocity(turnSpeed);
+    setRightMotorsVelocity(-turnSpeed);
+    
     wait(20, msec);
   }
-
+  
   stopAllMotors();
   intake.stop(brake); // Stop intake motor after turning
 }
 
-//------------------- Turn Wrappers -------------------//
-
-void drive_turn_right_no_hands(double degreesToTurn, int intakeSpeed = 0) {
-  double target = wrapAngle(gyro_1.heading(degrees) + fabs(degreesToTurn));
-  turn(target, intakeSpeed);
-}
-
-void drive_turn_left_no_hands(double degreesToTurn, int intakeSpeed = 0) {
-  double target = wrapAngle(gyro_1.heading(degrees) - fabs(degreesToTurn));
-  turn(target, intakeSpeed);
-}
 
 //------------------- Driver Control Functions -------------------//
 
@@ -283,32 +405,32 @@ void auton_right_side() {
   // RIGHT SIDE autonomous routine
   gyro_1.setHeading(34, degrees);
 
-  drive_forward(470.1, true);      // Drive forward with intake (degrees)
-  turn(45, 100);                  // Turn RIGHT 25 degrees
-  // drive_forward(235.1, true);       // Drive forward (degrees   // Drive forward (degrees)
-  // drive_forward(-235.1, true);
-  turn(0);
-  drive_forward(-160);
-  turn(-90);
-  drive_forward(-450.1);
-  turn(180);
-  drive_forward(-235.1);
+  drive_forward_pid(470.1, true);      // Drive forward with intake (degrees)
+  turn_pid(45, 100);                  // turn_pid RIGHT 25 degrees
+  // drive_forward_pid(235.1, true);       // Drive forward (degrees   // Drive forward (degrees)
+  // drive_forward_pid(-235.1, true);
+  turn_pid(0);
+  drive_forward_pid(-160);
+  turn_pid(-90);
+  drive_forward_pid(-450.1);
+  turn_pid(180);
+  drive_forward_pid(-235.1);
 
   toungePos.set(true);
-  drive_forward(100, true);
-  drive_forward(-470.1, true);
+  drive_forward_pid(100, true);
+  drive_forward_pid(-470.1, true);
   intakeAndDepo(10, 50, 50);
 }
 
 void auton_left_side() {
   gyro_1.setHeading(0, degrees);
   
-  drive_forward(1200, true);       // Drive forward with intake (degrees)
-  turn(335, 100);                  // Turn LEFT 25 degrees (360 - 25 = 335)
-  drive_forward(300, true);        // Drive forward (degrees)
-  turn(315, 100);                  // Turn LEFT to 315 degrees total (360 - 45 = 315)
-  drive_forward(1200, true);       // Drive forward (degrees)
-  drive_forward(-900, true);       // Move away from auton line
+  drive_forward_pid(1200, true);       // Drive forward with intake (degrees)
+  turn_pid(335, 100);                  // Turn LEFT 25 degrees (360 - 25 = 335)
+  drive_forward_pid(300, true);        // Drive forward (degrees)
+  turn_pid(315, 100);                  // Turn LEFT to 315 degrees total (360 - 45 = 315)
+  drive_forward_pid(1200, true);       // Drive forward (degrees)
+  drive_forward_pid(-900, true);       // Move away from auton line
 }
 
 
