@@ -318,6 +318,44 @@ void turn_pid(double targetHeading, int intakeSpeed = 0) {
   intake.stop(brake); // Stop intake motor after turning
 }
 
+//------------------- Mirroring Helper Function -------------------//
+
+double mirrorHeading(double heading) {
+  // Mirror heading across the vertical axis (0/360 degrees)
+  // 45 degrees becomes 315 degrees (360 - 45)
+  // 315 degrees becomes 45 degrees (360 - 315)
+  return wrapAngle(360.0 - heading);
+}
+
+//------------------- Turn Wrappers -------------------//
+
+void drive_turn_right_pid(double degreesToTurn, int intakeSpeed = 0) {
+  double target = wrapAngle(gyro_1.heading(degrees) + fabs(degreesToTurn));
+  turn_pid(target, intakeSpeed);
+}
+
+void drive_turn_left_pid(double degreesToTurn, int intakeSpeed = 0) {
+  double target = wrapAngle(gyro_1.heading(degrees) - fabs(degreesToTurn));
+  turn_pid(target, intakeSpeed);
+}
+
+//------------------- Legacy Functions (for compatibility) -------------------//
+
+void drive_forward(int targetDegrees, bool runIntake = false, bool runDepo = false) {
+  drive_forward_pid(targetDegrees, runIntake, runDepo);
+}
+
+void turn(double targetHeading, int intakeSpeed = 0) {
+  turn_pid(targetHeading, intakeSpeed);
+}
+
+void drive_turn_right_no_hands(double degreesToTurn, int intakeSpeed = 0) {
+  drive_turn_right_pid(degreesToTurn, intakeSpeed);
+}
+
+void drive_turn_left_no_hands(double degreesToTurn, int intakeSpeed = 0) {
+  drive_turn_left_pid(degreesToTurn, intakeSpeed);
+}
 
 //------------------- Driver Control Functions -------------------//
 
@@ -403,23 +441,8 @@ void brainDisplay() {
 
 void auton_right_side() {
   // RIGHT SIDE autonomous routine
-  gyro_1.setHeading(34, degrees);
+  gyro_1.setHeading(0, degrees);
 
-  drive_forward_pid(470.1, true);      // Drive forward with intake (degrees)
-  turn_pid(45, 100);                  // turn_pid RIGHT 25 degrees
-  // drive_forward_pid(235.1, true);       // Drive forward (degrees   // Drive forward (degrees)
-  // drive_forward_pid(-235.1, true);
-  turn_pid(0);
-  drive_forward_pid(-160);
-  turn_pid(-90);
-  drive_forward_pid(-450.1);
-  turn_pid(180);
-  drive_forward_pid(-235.1);
-
-  toungePos.set(true);
-  drive_forward_pid(100, true);
-  drive_forward_pid(-470.1, true);
-  intakeAndDepo(10, 50, 50);
 }
 
 void auton_left_side() {
