@@ -397,18 +397,18 @@ void split_Drive() {
     lastButtonBState = currentButtonBState;
     
     // Intake control
-    if(cont.ButtonL1.pressing()) {
+    if(cont.ButtonR1.pressing()) {
         intake.spin(vex::forward, 100, pct);
-    } else if(cont.ButtonL2.pressing()) {
+    } else if(cont.ButtonR2.pressing()) {
         intake.spin(vex::forward, -100, pct);
     } else {
         intake.stop();
     }
     
     // Deposition control
-    if(cont.ButtonR1.pressing()) {
+    if(cont.ButtonL1.pressing()) {
         deposition.spin(vex::forward, 60, pct);
-    } else if(cont.ButtonR2.pressing()) {
+    } else if(cont.ButtonL2.pressing()) {
         deposition.spin(vex::forward, -60, pct);
     } else {
         deposition.stop();
@@ -423,7 +423,11 @@ void intakeAndDepo(double timeSec, int intakeSpeed, int depoSpeed) {
   intake.stop(brake);
   deposition.stop(brake);
 }
-
+void runIntake(double timeSec, int intakeSpeed) {
+  intake.spin(forward, intakeSpeed, pct);
+  wait(timeSec, sec);
+  intake.stop(brake);
+}
 //------------------- Debug Display -------------------//
 
 void brainDisplay() {
@@ -440,9 +444,21 @@ void brainDisplay() {
 //------------------- Autonomous Routines -------------------//
 
 void auton_right_side() {
-  // RIGHT SIDE autonomous routine
-  gyro_1.setHeading(0, degrees);
+  gyro_1.setHeading(34, degrees);
 
+  drive_forward_pid(470, true);      // Drive forward with intake (degrees)
+  turn_pid(0);
+  drive_forward_pid(-160);
+  turn_pid(-90);
+  drive_forward_pid(-420);
+  turn_pid(180);
+  drive_forward_pid(-235);
+
+  toungePos.set(true);
+  drive_forward_pid(100, true);
+  runIntake(4, 100);
+  drive_forward_pid(-470, true);
+  intakeAndDepo(5, 50, 50);
 }
 
 void auton_left_side() {
