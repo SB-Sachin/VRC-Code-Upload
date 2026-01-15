@@ -39,26 +39,24 @@ bool lastButtonBState = false; // State variable for ButtonA to detect single pr
 // PID Constants for Drive
 const double DRIVE_KP = 0.3;
 const double DRIVE_KI = 0.001;
-const double DRIVE_KD = 0.1;
-const double DRIVE_MAX_SPEED = 60;
+const double DRIVE_KD = 0.5;
+const double DRIVE_MAX_SPEED = 40;
 const double DRIVE_MIN_SPEED = 8;
 const double DRIVE_TOLERANCE = 10; // degrees tolerance
 
 // PID Constants for Turn
-const double TURN_KP = 0.8;
+const double TURN_KP = 0.2;
 const double TURN_KI = 0.001;
-const double TURN_KD = 0.15;
-const double TURN_MAX_SPEED = 50;
-const double TURN_MIN_SPEED = 5;
-const double TURN_TOLERANCE = 1.5; // degrees tolerance
+const double TURN_KD = 0.03;
+const double TURN_MAX_SPEED = 20;
+const double TURN_MIN_SPEED = 3;
+const double TURN_TOLERANCE = 2; // degrees tolerance
 
 // Constants for driver control
 const double DRIVER_SPEED = 0.7; // Speed multiplier for driver control
 const double TURN_SPEED = 0.3; // Speed multiplier for turning (slower than forward)
 
-// Autonomous selector variable
-int autonSelection = 0; // 0 = Right Side, 1 = Left Side
-int current_auton_selection;
+
 
 //------------------- PID Controller Class -------------------//
 
@@ -270,6 +268,13 @@ void drive_forward_pid(int targetDegrees, bool runIntake = false, bool runDepo =
   stopAllMotors();
 }
 
+
+void drive_forward_spam() {
+  for (int i=0; i<5; i++) {
+    drive_forward_pid(10, true);
+    drive_forward_pid(-10, true);
+  }
+}
 //------------------- PID Turn Function -------------------//
 
 void turn_pid(double targetHeading, int intakeSpeed = 0) {
@@ -446,17 +451,19 @@ void brainDisplay() {
 void auton_right_side() {
   gyro_1.setHeading(34, degrees);
 
-  drive_forward_pid(470, true);      // Drive forward with intake (degrees)
-  turn_pid(0);
-  drive_forward_pid(-160);
+  drive_forward_pid(500, true);
+  runIntake(1, 60);
+  drive_forward_pid(-30, true);
+  runIntake(1, 60);
+  turn_pid(0, 100);
+  drive_forward_pid(-200);
   turn_pid(-90);
-  drive_forward_pid(-420);
+  drive_forward_pid(-350);
   turn_pid(180);
-  drive_forward_pid(-235);
-
   toungePos.set(true);
-  drive_forward_pid(100, true);
-  runIntake(4, 100);
+  drive_forward_pid(400, true);
+  drive_forward_spam();
+  runIntake(2, 100);
   drive_forward_pid(-470, true);
   intakeAndDepo(5, 50, 50);
 }
