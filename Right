@@ -37,20 +37,20 @@ bool wingUp = false; // State variable for wing pneumatics position
 bool lastButtonBState = false; // State variable for ButtonA to detect single presses
 
 // PID Constants for Drive
-const double DRIVE_KP = 0.3;
+const double DRIVE_KP = 0.23; //previously .25
 const double DRIVE_KI = 0.001;
-const double DRIVE_KD = 0.5;
-const double DRIVE_MAX_SPEED = 40;
+const double DRIVE_KD = 0.8;
+const double DRIVE_MAX_SPEED = 50;
 const double DRIVE_MIN_SPEED = 8;
 const double DRIVE_TOLERANCE = 10; // degrees tolerance
 
 // PID Constants for Turn
-const double TURN_KP = 0.2;
+const double TURN_KP = 0.28;//35v
 const double TURN_KI = 0.001;
-const double TURN_KD = 0.03;
-const double TURN_MAX_SPEED = 20;
-const double TURN_MIN_SPEED = 3;
-const double TURN_TOLERANCE = 2; // degrees tolerance
+const double TURN_KD = 0.12;//08
+const double TURN_MAX_SPEED = 65;
+const double TURN_MIN_SPEED = 5;//23
+const double TURN_TOLERANCE = 4; // degrees tolerance
 
 // Constants for driver control
 const double DRIVER_SPEED = 0.7; // Speed multiplier for driver control
@@ -269,8 +269,8 @@ void drive_forward_pid(int targetDegrees, bool runIntake = false, bool runDepo =
 }
 
 
-void drive_forward_spam() {
-  for (int i=0; i<5; i++) {
+void drive_forward_spam(int amount_of_time) {
+  for (int i=0; i<amount_of_time; i++) {
     drive_forward_pid(10, true);
     drive_forward_pid(-10, true);
   }
@@ -346,8 +346,19 @@ void drive_turn_left_pid(double degreesToTurn, int intakeSpeed = 0) {
 
 //------------------- Legacy Functions (for compatibility) -------------------//
 
-void drive_forward(int targetDegrees, bool runIntake = false, bool runDepo = false) {
-  drive_forward_pid(targetDegrees, runIntake, runDepo);
+void drive_forward(int time1, bool runIntake = false, bool runDepo = false) {
+  setAllMotors(forward, 60, pct);
+  if (runIntake) {
+      intake.spin(forward, 100, pct);
+    }
+  if (runDepo) {
+    deposition.spin(forward, 100, pct);
+
+  }
+
+  wait(time1, msec);
+
+  stopAllMotors();
 }
 
 void turn(double targetHeading, int intakeSpeed = 0) {
@@ -449,23 +460,28 @@ void brainDisplay() {
 //------------------- Autonomous Routines -------------------//
 
 void auton_right_side() {
-  gyro_1.setHeading(34, degrees);
+  gyro_1.setHeading(35, degrees);
 
-  drive_forward_pid(500, true);
-  runIntake(1, 60);
-  drive_forward_pid(-30, true);
-  runIntake(1, 60);
-  turn_pid(0, 100);
-  drive_forward_pid(-200);
-  turn_pid(-90);
-  drive_forward_pid(-350);
-  turn_pid(180);
+  drive_forward(600, true);
   toungePos.set(true);
-  drive_forward_pid(400, true);
-  drive_forward_spam();
-  runIntake(2, 100);
-  drive_forward_pid(-470, true);
-  intakeAndDepo(5, 50, 50);
+  drive_forward_pid(100, true);
+  drive_forward_pid(-30, true);
+
+
+
+  turn_pid(0, 100);
+  drive_forward_pid(-220, true);
+  turn_pid(-90, true);
+  drive_forward_pid(-400);
+  turn_pid(180);
+
+  drive_forward_pid(300, true);//315
+  drive_forward_spam(3);
+//match loader
+  drive_forward_pid(-60, true);
+  turn_pid(180, 100);
+  drive_forward_pid(-370, true);
+  intakeAndDepo(5, 100, 100);
 }
 
 void auton_left_side() {
@@ -478,7 +494,6 @@ void auton_left_side() {
   drive_forward_pid(1200, true);       // Drive forward (degrees)
   drive_forward_pid(-900, true);       // Move away from auton line
 }
-
 
 /*---------------------------------------------------------------------------*/
 /*                          Pre-Autonomous Functions                         */
