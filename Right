@@ -1,7 +1,7 @@
 /*----------------------------------------------------------------------------*/
 /*                                                                            */
 /*    Module:       main.cpp                                                  */
-/*    Author:       sachinbeniwal                                             */
+/*    Author:       arvensrikanth                                             */
 /*    Created:      11/8/2025, 11:08:40 AM                                    */
 /*    Description:  V5 Competition Project with PID Control                   */
 /*                                                                            */
@@ -49,8 +49,8 @@ const double TURN_KP = 0.28;//35v
 const double TURN_KI = 0.001;
 const double TURN_KD = 0.12;//08
 const double TURN_MAX_SPEED = 65;
-const double TURN_MIN_SPEED = 5;//23
-const double TURN_TOLERANCE = 4; // degrees tolerance
+const double TURN_MIN_SPEED = 4;//23
+const double TURN_TOLERANCE = 10; // degrees tolerance
 
 // Constants for driver control
 const double DRIVER_SPEED = 0.7; // Speed multiplier for driver control
@@ -203,7 +203,7 @@ double getAveragePosition() {
 
 //------------------- PID Drive Forward Function -------------------//
 
-void drive_forward_pid(int targetDegrees, bool runIntake = false, bool runDepo = false) {
+void drive_forward_pid(int targetDegrees, float speed= 1, bool runIntake = false, bool runDepo = false) {
   PIDController drivePID(DRIVE_KP, DRIVE_KI, DRIVE_KD, DRIVE_MAX_SPEED, DRIVE_MIN_SPEED);
   PIDController headingPID(0.5, 0.0, 0.05, 30, 0); // For heading correction
   
@@ -233,7 +233,7 @@ void drive_forward_pid(int targetDegrees, bool runIntake = false, bool runDepo =
     }
     
     // Calculate drive speed from PID
-    double driveSpeed = drivePID.calculate(error);
+    double driveSpeed = drivePID.calculate(error) * speed;
     
     // Calculate heading correction
     double currentHeading = gyro_1.heading(degrees);
@@ -271,8 +271,8 @@ void drive_forward_pid(int targetDegrees, bool runIntake = false, bool runDepo =
 
 void drive_forward_spam(int amount_of_time) {
   for (int i=0; i<amount_of_time; i++) {
-    drive_forward_pid(10, true);
-    drive_forward_pid(-10, true);
+    drive_forward_pid(15, true);
+    drive_forward_pid(15, true);
   }
 }
 //------------------- PID Turn Function -------------------//
@@ -346,8 +346,13 @@ void drive_turn_left_pid(double degreesToTurn, int intakeSpeed = 0) {
 
 //------------------- Legacy Functions (for compatibility) -------------------//
 
-void drive_forward(int time1, bool runIntake = false, bool runDepo = false) {
-  setAllMotors(forward, 60, pct);
+void drive_forward(int degrees1, int speed, bool runIntake = false, bool runDepo = false) {
+  leftMotor.spinTo(degrees1, deg);
+  leftMotor2.spinTo(degrees1, deg);
+  leftMotor3.spinTo(degrees1, deg);
+  rightMotor.spinTo(degrees1, deg);
+  rightMotor2.spinTo(degrees1, deg);
+  rightMotor3.spinTo(degrees1, deg);
   if (runIntake) {
       intake.spin(forward, 100, pct);
     }
@@ -355,8 +360,6 @@ void drive_forward(int time1, bool runIntake = false, bool runDepo = false) {
     deposition.spin(forward, 100, pct);
 
   }
-
-  wait(time1, msec);
 
   stopAllMotors();
 }
@@ -462,9 +465,9 @@ void brainDisplay() {
 void auton_right_side() {
   gyro_1.setHeading(35, degrees);
 
-  drive_forward(600, true);
-  toungePos.set(true);
-  drive_forward_pid(100, true);
+  drive_forward_pid(500, 0.7, true);
+
+
   drive_forward_pid(-30, true);
 
 
@@ -474,13 +477,15 @@ void auton_right_side() {
   turn_pid(-90, true);
   drive_forward_pid(-400);
   turn_pid(180);
-
-  drive_forward_pid(300, true);//315
-  drive_forward_spam(3);
+  toungePos.set(true);
+  wait(0.5, sec);
+  drive_forward_pid(300, true);//330
+  drive_forward(40, true);
+  drive_forward_spam(2);
 //match loader
   drive_forward_pid(-60, true);
   turn_pid(180, 100);
-  drive_forward_pid(-370, true);
+  drive_forward_pid(-340, true);
   intakeAndDepo(5, 100, 100);
 }
 
