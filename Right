@@ -1,7 +1,7 @@
 /*----------------------------------------------------------------------------*/
 /*                                                                            */
 /*    Module:       main.cpp                                                  */
-/*    Author:       arvensrikanth                                             */
+/*    Author:       sachinbeniwal                                             */
 /*    Created:      11/8/2025, 11:08:40 AM                                    */
 /*    Description:  V5 Competition Project with PID Control                   */
 /*                                                                            */
@@ -269,12 +269,7 @@ void drive_forward_pid(int targetDegrees, float speed= 1, bool runIntake = false
 }
 
 
-void drive_forward_spam(int amount_of_time) {
-  for (int i=0; i<amount_of_time; i++) {
-    drive_forward_pid(15, true);
-    drive_forward_pid(15, true);
-  }
-}
+
 //------------------- PID Turn Function -------------------//
 
 void turn_pid(double targetHeading, int intakeSpeed = 0) {
@@ -343,7 +338,13 @@ void drive_turn_left_pid(double degreesToTurn, int intakeSpeed = 0) {
   double target = wrapAngle(gyro_1.heading(degrees) - fabs(degreesToTurn));
   turn_pid(target, intakeSpeed);
 }
-
+//------------------Drive Spam -----------------//
+void drive_forward_spam(int amount_of_time) {
+  for (int i=0; i<amount_of_time; i++) {
+    drive_forward_pid(15, true);
+    drive_forward_pid(-15, true);
+  }
+}
 //------------------- Legacy Functions (for compatibility) -------------------//
 
 void drive_forward(int degrees1, int speed, bool runIntake = false, bool runDepo = false) {
@@ -475,15 +476,17 @@ void auton_right_side() {
   turn_pid(0, 100);
   drive_forward_pid(-220, true);
   turn_pid(-90, true);
-  drive_forward_pid(-400);
+  drive_forward_pid(-360);
   turn_pid(180);
   toungePos.set(true);
   wait(0.5, sec);
-  drive_forward_pid(300, true);//330
-  drive_forward(40, true);
-  drive_forward_spam(2);
-//match loader
-  drive_forward_pid(-60, true);
+  drive_forward_pid(330, true);//330
+  drive_forward_pid(30, true);
+  drive_forward_pid(-30, true);
+  drive_forward_pid(30, true);
+  drive_forward_pid(-30, true);
+  //match loader
+  // drive_forward_pid(-60, true);
   turn_pid(180, 100);
   drive_forward_pid(-340, true);
   intakeAndDepo(5, 100, 100);
