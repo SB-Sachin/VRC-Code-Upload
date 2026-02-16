@@ -10,13 +10,13 @@ int whenStarted1() {
 // "when Controller1 ButtonY pressed" hat block
 void onevent_Controller1ButtonY_pressed_0() {
   if (midgoalup) {
-    midGoal.set(true);
-    midgoalup = true;
+    midGoal.set(false);
+    midgoalup = false;
     wait(0.1, seconds);
   }
   else {
-    midGoal.set(false);
-    midgoalup = false;
+    midGoal.set(true);
+    midgoalup = true;
     wait(0.1, seconds);
   }
 }
