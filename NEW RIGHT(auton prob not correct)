@@ -476,43 +476,32 @@ void brainDisplay() {
 //------------------- Autonomous Routines -------------------//
 
 void auton_right_side() {
-  gyro_1.setHeading(35, degrees);
+    gyro_1.setHeading(35, degrees);
 
-  drive_forward_pid(500, 0.7, true);
-
-
-  drive_forward_pid(-30, true);
+    drive_forward_pid(500, 0.7, true);
 
 
+    drive_forward_pid(-30, true);
 
-  turn_pid(0, 100);
-  drive_forward_pid(-220, true);
-  turn_pid(-90, true);
-  drive_forward_pid(-360);
-  turn_pid(180);
-  toungePos.set(true);
-  wait(0.5, sec);
-  drive_forward_pid(330, true);//330
-  drive_forward_pid(30, true);
-  drive_forward_pid(-30, true);
-  drive_forward_pid(30, true);
-  drive_forward_pid(-30, true);
-  //match loader
-  // drive_forward_pid(-60, true);
-  turn_pid(180, 100);
-  drive_forward_pid(-340, true);
-  intakeAndDepo(5, 100, 100);
-}
 
-void auton_left_side() {
-  gyro_1.setHeading(0, degrees);
-  
-  drive_forward_pid(1200, true);       // Drive forward with intake (degrees)
-  turn_pid(335, 100);                  // Turn LEFT 25 degrees (360 - 25 = 335)
-  drive_forward_pid(300, true);        // Drive forward (degrees)
-  turn_pid(315, 100);                  // Turn LEFT to 315 degrees total (360 - 45 = 315)
-  drive_forward_pid(1200, true);       // Drive forward (degrees)
-  drive_forward_pid(-900, true);       // Move away from auton line
+
+    turn_pid(0, 100);
+    drive_forward_pid(-220, true);
+    turn_pid(-90, true);
+    drive_forward_pid(-360);
+    turn_pid(180);
+    toungePos.set(true);
+    wait(0.5, sec);
+    drive_forward_pid(330, true);//330
+    drive_forward_pid(30, true);
+    drive_forward_pid(-30, true);
+    drive_forward_pid(30, true);
+    drive_forward_pid(-30, true);
+    //match loader
+    // drive_forward_pid(-60, true);
+    turn_pid(180, 100);
+    drive_forward_pid(-340, true);
+    intakeAndDepo(5, 100, 100);
 }
 
 /*---------------------------------------------------------------------------*/
