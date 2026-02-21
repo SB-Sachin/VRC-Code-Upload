@@ -1,0 +1,93 @@
+// Slew rate constant: Controls how fast the bot is allowed to accelerate/decelerate.
+// A lower number means smoother/slower acceleration. A higher number is punchier.
+const double ACCEL_STEP = 3.0; // Max percent change per 10ms loop
+
+void split_Drive() {
+    // Static variables remember their value between loops so we can track current speeds
+    static double currentLeftSpeed = 0.0;
+    static double currentRightSpeed = 0.0;
+
+    // Get raw joystick values (-100 to 100)
+    double forwardRaw = cont.Axis3.position();
+    double turnRaw = cont.Axis1.position();
+    
+    // Apply cubic acceleration curve to both axes (keeps low-end precision)
+    double forwardCurved = applyCubicCurve(forwardRaw);
+    double turnCurved = applyCubicCurve(turnRaw);
+    
+    // Apply speed multipliers
+    double forward = forwardCurved * DRIVER_SPEED;
+    double turn = turnCurved * TURN_SPEED;
+    
+    // Calculate TARGET speeds
+    double targetLeftSpeed = forward + turn;
+    double targetRightSpeed = forward - turn;
+    
+    // --- SLEW RATE (ACCELERATION) LIMITING ---
+    
+    // Smooth the Left Drive
+    if (targetLeftSpeed > currentLeftSpeed + ACCEL_STEP) {
+        currentLeftSpeed += ACCEL_STEP; // Accelerate forward
+    } else if (targetLeftSpeed < currentLeftSpeed - ACCEL_STEP) {
+        currentLeftSpeed -= ACCEL_STEP; // Decelerate / accelerate backward
+    } else {
+        currentLeftSpeed = targetLeftSpeed; // Snap to target if close enough
+    }
+
+    // Smooth the Right Drive
+    if (targetRightSpeed > currentRightSpeed + ACCEL_STEP) {
+        currentRightSpeed += ACCEL_STEP;
+    } else if (targetRightSpeed < currentRightSpeed - ACCEL_STEP) {
+        currentRightSpeed -= ACCEL_STEP;
+    } else {
+        currentRightSpeed = targetRightSpeed;
+    }
+    
+    // Set motors to the smoothed current speeds
+    setLeftMotors(vex::forward, currentLeftSpeed, pct);
+    setRightMotors(vex::forward, currentRightSpeed, pct);
+    
+    // --- CONTROLS ---
+
+    // Tongue position control (toggle with ButtonA)
+    bool currentButtonAState = cont.ButtonA.pressing();
+    if (currentButtonAState && !lastButtonAState) {
+        toungeUp = !toungeUp;
+        toungePos.set(toungeUp);
+    }
+    lastButtonAState = currentButtonAState;
+
+    // Wing pneumatics control (toggle with ButtonB)
+    bool currentButtonBState = cont.ButtonB.pressing();
+    if (currentButtonBState && !lastButtonBState) {
+        wingUp = !wingUp;
+        wingPneumatics.set(wingUp);
+    }
+    lastButtonBState = currentButtonBState;
+
+    // Midgoal scorer control (toggle with ButtonY)
+    bool currentButtonYState = cont.ButtonY.pressing();
+    if (currentButtonYState && !lastButtonYState) {
+        midgoalUp = !midgoalUp;
+        midgoalScorer.set(midgoalUp);
+    }
+    lastButtonYState = currentButtonYState;
+    
+    // Intake control
+    if(cont.ButtonR1.pressing()) {
+        intake.spin(vex::forward, 100, pct);
+    } else if(cont.ButtonR2.pressing()) {
+        intake.spin(vex::forward, -100, pct);
+    } else {
+        intake.stop();
+    }
+    
+    // Deposition control
+    if(cont.ButtonL1.pressing()) {
+        deposition.spin(vex::forward, 60, pct);
+    } else if(cont.ButtonL2.pressing()) {
+        deposition.spin(vex::forward, -60, pct);
+    } else {
+        deposition.stop();
+    }
+}
