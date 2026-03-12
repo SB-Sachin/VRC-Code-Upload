@@ -17,18 +17,18 @@ competition Competition;
 
 // Global devices
 vex::brain Brain;
-motor leftMotor = motor(PORT3, true);
-motor leftMotor2 = motor(PORT1, false);
-motor leftMotor3 = motor(PORT2, true);
-motor rightMotor = motor(PORT13, false);
-motor rightMotor2 = motor(PORT11, false);
-motor rightMotor3 = motor(PORT12, true);
-inertial gyro_1 = inertial(PORT19);
-motor intake = motor(PORT10, true);
-motor deposition = motor(PORT9, true);
+motor leftMotor = motor(PORT1, true);
+motor leftMotor2 = motor(PORT2, true);
+motor leftMotor3 = motor(PORT3, true);
+motor rightMotor = motor(PORT10, false);
+motor rightMotor2 = motor(PORT9, false);
+motor rightMotor3 = motor(PORT8, false);
+inertial gyro_1 = inertial(PORT20);
+motor intake = motor(PORT4, true);
+motor deposition = motor(PORT12, true);
 controller cont = controller();
-digital_out toungePos = digital_out(Brain.ThreeWirePort.G);
-digital_out wingPneumatics = digital_out(Brain.ThreeWirePort.H);
+digital_out toungePos = digital_out(Brain.ThreeWirePort.C);
+digital_out wingPneumatics = digital_out(Brain.ThreeWirePort.B);
 digital_out midgoalScorer = digital_out(Brain.ThreeWirePort.A);
 
 
@@ -39,11 +39,12 @@ bool wingUp = false; // State variable for wing pneumatics position
 bool lastButtonBState = false; // State variable for ButtonA to detect single presses
 bool lastButtonYState = false; // State variable for ButtonY to detect single presses
 bool lastButtonAState = false; // State variable for ButtonX to detect single presses
+bool ToggleWingUp = true;
 
 // PID Constants for Drive
-const double DRIVE_KP = 0.23; //previously .25
+const double DRIVE_KP = 0.19; //previously .25
 const double DRIVE_KI = 0.001;
-const double DRIVE_KD = 0.8;
+const double DRIVE_KD = 0.7;
 const double DRIVE_MAX_SPEED = 50;
 const double DRIVE_MIN_SPEED = 8;
 const double DRIVE_TOLERANCE = 10; // degrees tolerance
@@ -53,7 +54,7 @@ const double TURN_KP = 0.28;//35v
 const double TURN_KI = 0.001;
 const double TURN_KD = 0.12;//08
 const double TURN_MAX_SPEED = 65;
-const double TURN_MIN_SPEED = 4;//23
+const double TURN_MIN_SPEED = 8;//23
 const double TURN_TOLERANCE = 10; // degrees tolerance
 
 // Constants for driver control
@@ -351,7 +352,7 @@ void drive_forward_spam(int amount_of_time) {
 }
 //------------------- Legacy Functions (for compatibility) -------------------//
 
-void drive_forward(int degrees1, int speed, bool runIntake = false, bool runDepo = false) {
+void drive_forward_no_pid(int degrees1, int speed, bool runIntake = false, bool runDepo = false) {
   leftMotor.spinTo(degrees1, deg);
   leftMotor2.spinTo(degrees1, deg);
   leftMotor3.spinTo(degrees1, deg);
@@ -419,6 +420,16 @@ void split_Drive() {
         wingPneumatics.set(wingUp);
     }
     lastButtonBState = currentButtonBState;
+    if (cont.ButtonX.pressing()){
+        ToggleWingUp = true;
+        wingPneumatics.set(ToggleWingUp);
+    }
+    else if(!cont.ButtonX.pressing()){
+        if (ToggleWingUp = true){
+            ToggleWingUp = false;
+        }
+    }
+    
 
     // Midgoal scorer control (toggle with ButtonY)
     bool currentButtonYState = cont.ButtonY.pressing();
@@ -476,32 +487,42 @@ void brainDisplay() {
 //------------------- Autonomous Routines -------------------//
 
 void auton_right_side() {
-    gyro_1.setHeading(35, degrees);
-
-    drive_forward_pid(500, 0.7, true);
-
-
-    drive_forward_pid(-30, true);
-
-
-
-    turn_pid(0, 100);
-    drive_forward_pid(-220, true);
-    turn_pid(-90, true);
-    drive_forward_pid(-360);
+    gyro_1.setHeading(12, degrees);
+    midgoalScorer.set(true);
+    drive_forward_pid(190, 1, true);
+    turn_pid(120, 100);
+    drive_forward_pid(275);
     turn_pid(180);
-    toungePos.set(true);
-    wait(0.5, sec);
-    drive_forward_pid(330, true);//330
-    drive_forward_pid(30, true);
-    drive_forward_pid(-30, true);
-    drive_forward_pid(30, true);
-    drive_forward_pid(-30, true);
-    //match loader
-    // drive_forward_pid(-60, true);
-    turn_pid(180, 100);
-    drive_forward_pid(-340, true);
-    intakeAndDepo(5, 100, 100);
+    // toungePos.set(true);
+    // drive_forward_no_pid(180, 50, true);
+    drive_forward_no_pid(-470, 40, true);
+    intakeAndDepo(3, 100, 100);
+    // gyro_1.setHeading(35, degrees);
+
+    // drive_forward_pid(500, 0.7, true);
+
+
+    // drive_forward_pid(-30, true);
+
+
+
+    // turn_pid(0, 100);
+    // drive_forward_pid(-220, true);
+    // turn_pid(-90, true);
+    // drive_forward_pid(-360);
+    // turn_pid(180);
+    // toungePos.set(true);
+    // wait(0.5, sec);
+    // drive_forward_pid(330, true);//330
+    // drive_forward_pid(30, true);
+    // drive_forward_pid(-30, true);
+    // drive_forward_pid(30, true);
+    // drive_forward_pid(-30, true);
+    // //match loader
+    // // drive_forward_pid(-60, true);
+    // turn_pid(180, 100);
+    // drive_forward_pid(-340, true);
+    // intakeAndDepo(5, 100, 100);
 }
 
 /*---------------------------------------------------------------------------*/
@@ -510,12 +531,14 @@ void auton_right_side() {
 
 void pre_auton(void) {
   // Calibrate gyro at startup
-  Brain.Screen.printAt(10, 200, "Calibrating Gyro...");
+  Brain.Screen.printAt(10, 200, "Calibrating Gyro..."); 
   gyro_1.calibrate();
   while (gyro_1.isCalibrating()) {
     wait(100, msec);
   }
   Brain.Screen.printAt(10, 220, "Gyro Ready!");
+  Brain.Screen.printAt(1, 80, "gyro_1 Rotation: %.2f", gyro_1.rotation(degrees));
+
 }
 
 /*---------------------------------------------------------------------------*/
@@ -534,7 +557,7 @@ void autonomous(void) {
 void usercontrol(void) {
   // Start debug display thread
   thread t(brainDisplay);
-  
+
   // User control code here, inside the loop
   while (1) {
     split_Drive();
